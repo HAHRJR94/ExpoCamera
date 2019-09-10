@@ -1,32 +1,88 @@
 import React from 'react';
-import { Text, View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, View, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import * as Permissions from 'expo-permissions';
 import { Camera } from 'expo-camera';
-import {
-  Ionicons,
-  MaterialIcons,
-  Foundation,
-  MaterialCommunityIcons
-} from '@expo/vector-icons';
+import {Ionicons} from '@expo/vector-icons';
+import CaptureButton from './component/CaptureButton';
 
 export default class CameraExample extends React.Component {
-  state = {
-    hasCameraPermission: null,
-    type: Camera.Constants.Type.back,
-    ratio: '16:9',
-    ratios: []
-  };
+
+  constructor(props) {
+    super(props);
+    
+    this.state = {
+      hasCameraPermission: null,
+      type: Camera.Constants.Type.back,
+      ratio: '16:9',
+      ratios: [],
+
+      identifiedAs: '',
+      loading: false
+    }
+  }
+  
 
   async componentDidMount() {
     const { status } = await Permissions.askAsync(Permissions.CAMERA);
     this.setState({ hasCameraPermission: status === 'granted' });
+
   }
 
-  takePicture = () => {
+  takePicture = async () => {
     if (this.camera) {
-      this.camera.takePictureAsync({ onPictureSaved: this.onPictureSaved });
+      
+      this.camera.pausePreview.bind(this);
+
+      this.setState(() => ({
+        loading: true
+      }));
+
+      const options = {
+        base64: true
+      }
+
+      const data = await this.camera.takePictureAsync(options);
+
+      this.identifyImage(data.base64);
     }
-  };
+  }
+
+  identifyImage(imageData){
+
+		// Initialise Clarifai api
+		const Clarifai = require('clarifai');
+
+		const app = new Clarifai.App({
+			apiKey: 'b748346be29c43c3be4e9411ec487def'
+		});
+
+		// Identify the image
+		app.models.predict(Clarifai.GENERAL_MODEL, {base64: imageData})
+			.then((response) => this.displayAnswer(response.outputs[0].data.concepts[0].name) //colocar datos de la db
+			.catch((err) => alert(err))
+		);
+	}
+
+  displayAnswer(identifiedImage){
+
+		// Dismiss the acitivty indicator
+		this.setState((prevState, props) => ({
+			identifedAs:identifiedImage,
+      loading:false,
+      
+		}));
+
+		// Show an alert with the answer on
+		Alert.alert(
+			this.state.identifedAs,
+			'',
+			{ cancelable: false }
+		  )
+
+		// Resume the preview
+		this.camera.resumePreview.bind(this);
+	}
+  
   
   getRatios = async () => {
     const ratios = await this.camera.getSupportedRatios();
@@ -44,7 +100,7 @@ export default class CameraExample extends React.Component {
     } else {
       return (
         <View style={styles.container}>
-          <Camera style={{ flex: 1 }} type={this.state.type}>
+          <Camera ref= {ref=>{this.camera = ref;}} style={{ flex: 1 }} type={this.state.type}>
             <View style={{flex:0.03, backgroundColor: "black"}}></View>
             <View
               style={styles.topBar}>
@@ -54,9 +110,8 @@ export default class CameraExample extends React.Component {
             </View> 
             <View style={styles.bottomBar}>
               <View style={{ flex: 0.6, justifyContent: 'flex-end', marginBottom: 35 }}>
-                <TouchableOpacity onPress={this.takePicture} >
-                  <Ionicons name="ios-camera" size={70} color="white" />
-                </TouchableOpacity>
+                <ActivityIndicator size="large" style={styles.loadingIndicator} color="#fff" animating={this.state.loading}/>
+                <CaptureButton buttonDisabled={this.state.loading} onClick={this.takePicture.bind(this)}/>
               </View>
             </View>
           </Camera>
@@ -65,6 +120,8 @@ export default class CameraExample extends React.Component {
     }
   }
 }
+
+
 
 
 const styles = StyleSheet.create({

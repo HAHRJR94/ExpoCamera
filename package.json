@@ -8,8 +8,10 @@
     "eject": "expo eject"
   },
   "dependencies": {
+    "clarifai": "^2.9.1",
     "expo": "^34.0.1",
     "expo-camera": "^6.0.0",
+    "expo-font": "^6.0.1",
     "react": "16.8.3",
     "react-dom": "^16.8.6",
     "react-native": "https://github.com/expo/react-native/archive/sdk-34.0.0.tar.gz",
